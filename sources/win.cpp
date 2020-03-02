@@ -572,9 +572,7 @@ public:
         if (!GetVolumeInformationByHandleW(
                 m_handle, nullptr, 0, nullptr, nullptr, 0, fsname, array_length(fsname)))
             return;
-        m_is_ntfs = (CompareStringEx(
-                         LOCALE_NAME_INVARIANT, NORM_IGNORECASE, fsname, -1, L"NTFS", -1, 0, 0, 0)
-                     == CSTR_EQUAL);
+        m_is_ntfs = true;
         TRACE_LOG("Opening file on a %s volume", narrow_string(fsname).c_str());
     }
 
