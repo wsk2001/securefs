@@ -5,6 +5,7 @@
 #include "mystring.h"
 #include "myutils.h"
 #include "platform.h"
+#include "thread_safety_annotations.hpp"
 
 #include <map>
 #include <memory>
@@ -24,34 +25,12 @@ namespace lite
         DISABLE_COPY_MOVE(File)
 
     private:
-        securefs::optional<lite::AESGCMCryptStream> m_crypt_stream;
-        std::shared_ptr<securefs::FileStream> m_file_stream;
+        securefs::optional<lite::AESGCMCryptStream>
+            m_crypt_stream THREAD_ANNOTATION_GUARDED_BY(m_lock);
+        std::shared_ptr<securefs::FileStream> m_file_stream THREAD_ANNOTATION_GUARDED_BY(m_lock);
         std::mutex m_lock;
 
-    public:
-        explicit File(std::shared_ptr<securefs::FileStream> file_stream,
-                      const key_type& master_key,
-                      unsigned block_size,
-                      unsigned iv_size,
-                      bool check);
-        ~File();
-
-        length_type size() const { return m_crypt_stream->size(); }
-        void flush() { m_crypt_stream->flush(); }
-        bool is_sparse() const noexcept { return m_crypt_stream->is_sparse(); }
-        void resize(length_type len) { m_crypt_stream->resize(len); }
-        length_type read(void* output, offset_type off, length_type len)
-        {
-            return m_crypt_stream->read(output, off, len);
-        }
-        void write(const void* input, offset_type off, length_type len)
-        {
-            return m_crypt_stream->write(input, off, len);
-        }
-        void fstat(struct fuse_stat* stat);
-        void fsync() { m_file_stream->fsync(); }
-        void utimens(const fuse_timespec ts[2]) { m_file_stream->utimens(ts); }
-        void lock(bool exclusive = true)
+        void internal_lock(bool exclusive = true)
         {
             m_lock.lock();
             try
@@ -64,7 +43,48 @@ namespace lite
                 throw;
             }
         }
-        void unlock() noexcept
+
+    public:
+        explicit File(std::shared_ptr<securefs::FileStream> file_stream,
+                      const key_type& master_key,
+                      unsigned block_size,
+                      unsigned iv_size,
+                      bool check);
+        ~File();
+
+        length_type size() THREAD_ANNOTATION_REQUIRES_SHARED(m_lock) const
+        {
+            return m_crypt_stream->size();
+        }
+        void flush() THREAD_ANNOTATION_REQUIRES(m_lock) { m_crypt_stream->flush(); }
+        bool is_sparse() THREAD_ANNOTATION_REQUIRES_SHARED(m_lock) const noexcept
+        {
+            return m_crypt_stream->is_sparse();
+        }
+        void resize(length_type len) THREAD_ANNOTATION_REQUIRES(m_lock)
+        {
+            m_crypt_stream->resize(len);
+        }
+        length_type read(void* output, offset_type off, length_type len)
+            THREAD_ANNOTATION_REQUIRES_SHARED(m_lock)
+        {
+            return m_crypt_stream->read(output, off, len);
+        }
+        void write(const void* input, offset_type off, length_type len)
+            THREAD_ANNOTATION_REQUIRES(m_lock)
+        {
+            return m_crypt_stream->write(input, off, len);
+        }
+        void fstat(struct fuse_stat* stat) THREAD_ANNOTATION_REQUIRES_SHARED(m_lock);
+        void fsync() THREAD_ANNOTATION_REQUIRES(m_lock) { m_file_stream->fsync(); }
+        void utimens(const fuse_timespec ts[2]) THREAD_ANNOTATION_REQUIRES_SHARED(m_lock)
+        {
+            m_file_stream->utimens(ts);
+        }
+
+        void lock() THREAD_ANNOTATION_ACQUIRE(m_lock) { internal_lock(true); }
+        void shared_lock() THREAD_ANNOTATION_ACQUIRE_SHARED(m_lock) { internal_lock(false); }
+        void unlock() THREAD_ANNOTATION_RELEASE(m_lock) noexcept
         {
             m_file_stream->unlock();
             m_lock.unlock();
