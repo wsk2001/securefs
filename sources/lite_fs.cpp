@@ -188,7 +188,10 @@ namespace lite
                                    m_iv_size,
                                    (m_flags & kOptionNoAuthentication) == 0));
         if (flags & O_TRUNC)
+        {
+            LockGuard<File> guard(*fp);
             fp->resize(0);
+        }
         return fp;
     }
 

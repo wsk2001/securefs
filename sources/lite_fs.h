@@ -2,6 +2,7 @@
 
 #include "crypto.h"
 #include "lite_stream.h"
+#include "mutex.h"
 #include "mystring.h"
 #include "myutils.h"
 #include "platform.h"
@@ -28,21 +29,7 @@ namespace lite
         securefs::optional<lite::AESGCMCryptStream>
             m_crypt_stream THREAD_ANNOTATION_GUARDED_BY(m_lock);
         std::shared_ptr<securefs::FileStream> m_file_stream THREAD_ANNOTATION_GUARDED_BY(m_lock);
-        std::mutex m_lock;
-
-        void internal_lock(bool exclusive = true)
-        {
-            m_lock.lock();
-            try
-            {
-                m_file_stream->lock(exclusive);
-            }
-            catch (...)
-            {
-                m_lock.unlock();
-                throw;
-            }
-        }
+        Mutex m_lock;
 
     public:
         explicit File(std::shared_ptr<securefs::FileStream> file_stream,
@@ -52,12 +39,12 @@ namespace lite
                       bool check);
         ~File();
 
-        length_type size() THREAD_ANNOTATION_REQUIRES_SHARED(m_lock) const
+        length_type size() const THREAD_ANNOTATION_REQUIRES_SHARED(m_lock)
         {
             return m_crypt_stream->size();
         }
         void flush() THREAD_ANNOTATION_REQUIRES(m_lock) { m_crypt_stream->flush(); }
-        bool is_sparse() THREAD_ANNOTATION_REQUIRES_SHARED(m_lock) const noexcept
+        bool is_sparse() const noexcept THREAD_ANNOTATION_REQUIRES_SHARED(m_lock)
         {
             return m_crypt_stream->is_sparse();
         }
@@ -82,12 +69,41 @@ namespace lite
             m_file_stream->utimens(ts);
         }
 
-        void lock() THREAD_ANNOTATION_ACQUIRE(m_lock) { internal_lock(true); }
-        void shared_lock() THREAD_ANNOTATION_ACQUIRE_SHARED(m_lock) { internal_lock(false); }
-        void unlock() THREAD_ANNOTATION_RELEASE(m_lock) noexcept
+        void lock() THREAD_ANNOTATION_ACQUIRE(m_lock)
+        {
+            m_lock.lock();
+            try
+            {
+                m_file_stream->lock(true);
+            }
+            catch (...)
+            {
+                m_lock.unlock();
+                throw;
+            }
+        }
+        void lock_shared() THREAD_ANNOTATION_ACQUIRE_SHARED(m_lock)
+        {
+            m_lock.lock_shared();
+            try
+            {
+                m_file_stream->lock(false);
+            }
+            catch (...)
+            {
+                m_lock.unlock();
+                throw;
+            }
+        }
+        void unlock() noexcept THREAD_ANNOTATION_RELEASE(m_lock)
         {
             m_file_stream->unlock();
             m_lock.unlock();
+        }
+        void unlock_shared() noexcept THREAD_ANNOTATION_RELEASE_SHARED(m_lock)
+        {
+            m_file_stream->unlock();
+            m_lock.unlock_shared();
         }
     };
 

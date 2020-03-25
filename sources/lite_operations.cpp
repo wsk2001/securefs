@@ -252,8 +252,7 @@ namespace lite
 
         try
         {
-            fp->lock(false);
-            DEFER(fp->unlock());
+            SharedLockGuard<File> guard(*fp);
             return static_cast<int>(fp->read(buf, offset, size));
         }
         OPT_CATCH_WITH_PATH_OFF_LEN(offset, size)
@@ -272,8 +271,7 @@ namespace lite
 
         try
         {
-            fp->lock();
-            DEFER(fp->unlock());
+            LockGuard<File> guard(*fp);
             fp->write(buf, offset, size);
             return static_cast<int>(size);
         }
@@ -289,8 +287,7 @@ namespace lite
 
         try
         {
-            fp->lock();
-            DEFER(fp->unlock());
+            LockGuard<File> guard(*fp);
             fp->flush();
             return 0;
         }
@@ -306,8 +303,7 @@ namespace lite
 
         try
         {
-            fp->lock();
-            DEFER(fp->unlock());
+            LockGuard<File> guard(*fp);
             fp->resize(len);
             return 0;
         }
@@ -440,8 +436,7 @@ namespace lite
 
         try
         {
-            fp->lock();
-            DEFER(fp->unlock());
+            LockGuard<File> guard(*fp);
             fp->fsync();
             return 0;
         }
@@ -459,8 +454,7 @@ namespace lite
         try
         {
             AutoClosedFile fp = filesystem->open(path, O_RDWR, 0644);
-            fp->lock();
-            DEFER(fp->unlock());
+            LockGuard<File> guard(*fp);
             fp->resize(static_cast<size_t>(len));
             return 0;
         }
