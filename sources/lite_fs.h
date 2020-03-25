@@ -21,14 +21,13 @@ namespace securefs
 {
 namespace lite
 {
-    class File
+    class THREAD_ANNOTATION_CAPABILITY("mutex") File
     {
         DISABLE_COPY_MOVE(File)
 
     private:
-        securefs::optional<lite::AESGCMCryptStream>
-            m_crypt_stream THREAD_ANNOTATION_GUARDED_BY(m_lock);
-        std::shared_ptr<securefs::FileStream> m_file_stream THREAD_ANNOTATION_GUARDED_BY(m_lock);
+        securefs::optional<lite::AESGCMCryptStream> m_crypt_stream;
+        std::shared_ptr<securefs::FileStream> m_file_stream;
         Mutex m_lock;
 
     public:
@@ -39,37 +38,37 @@ namespace lite
                       bool check);
         ~File();
 
-        length_type size() const THREAD_ANNOTATION_REQUIRES_SHARED(m_lock)
+        length_type size() const THREAD_ANNOTATION_REQUIRES_SHARED(*this)
         {
             return m_crypt_stream->size();
         }
-        void flush() THREAD_ANNOTATION_REQUIRES(m_lock) { m_crypt_stream->flush(); }
-        bool is_sparse() const noexcept THREAD_ANNOTATION_REQUIRES_SHARED(m_lock)
+        void flush() THREAD_ANNOTATION_REQUIRES(*this) { m_crypt_stream->flush(); }
+        bool is_sparse() const noexcept THREAD_ANNOTATION_REQUIRES_SHARED(*this)
         {
             return m_crypt_stream->is_sparse();
         }
-        void resize(length_type len) THREAD_ANNOTATION_REQUIRES(m_lock)
+        void resize(length_type len) THREAD_ANNOTATION_REQUIRES(*this)
         {
             m_crypt_stream->resize(len);
         }
         length_type read(void* output, offset_type off, length_type len)
-            THREAD_ANNOTATION_REQUIRES_SHARED(m_lock)
+            THREAD_ANNOTATION_REQUIRES_SHARED(*this)
         {
             return m_crypt_stream->read(output, off, len);
         }
         void write(const void* input, offset_type off, length_type len)
-            THREAD_ANNOTATION_REQUIRES(m_lock)
+            THREAD_ANNOTATION_REQUIRES(*this)
         {
             return m_crypt_stream->write(input, off, len);
         }
-        void fstat(struct fuse_stat* stat) THREAD_ANNOTATION_REQUIRES_SHARED(m_lock);
-        void fsync() THREAD_ANNOTATION_REQUIRES(m_lock) { m_file_stream->fsync(); }
-        void utimens(const fuse_timespec ts[2]) THREAD_ANNOTATION_REQUIRES_SHARED(m_lock)
+        void fstat(struct fuse_stat* stat) THREAD_ANNOTATION_REQUIRES_SHARED(*this);
+        void fsync() THREAD_ANNOTATION_REQUIRES(*this) { m_file_stream->fsync(); }
+        void utimens(const fuse_timespec ts[2]) THREAD_ANNOTATION_REQUIRES_SHARED(*this)
         {
             m_file_stream->utimens(ts);
         }
 
-        void lock() THREAD_ANNOTATION_ACQUIRE(m_lock)
+        void lock() THREAD_ANNOTATION_ACQUIRE()
         {
             m_lock.lock();
             try
@@ -82,7 +81,7 @@ namespace lite
                 throw;
             }
         }
-        void lock_shared() THREAD_ANNOTATION_ACQUIRE_SHARED(m_lock)
+        void lock_shared() THREAD_ANNOTATION_ACQUIRE_SHARED()
         {
             m_lock.lock_shared();
             try
@@ -95,15 +94,10 @@ namespace lite
                 throw;
             }
         }
-        void unlock() noexcept THREAD_ANNOTATION_RELEASE(m_lock)
+        void unlock() noexcept THREAD_ANNOTATION_RELEASE()
         {
             m_file_stream->unlock();
             m_lock.unlock();
-        }
-        void unlock_shared() noexcept THREAD_ANNOTATION_RELEASE_SHARED(m_lock)
-        {
-            m_file_stream->unlock();
-            m_lock.unlock_shared();
         }
     };
 
