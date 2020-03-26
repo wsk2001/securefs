@@ -133,7 +133,8 @@ private:
 
 public:
     explicit AutoClosedFileLockGuard(AutoClosedFileBase& filebase)
-        THREAD_ANNOTATION_ACQUIRE(filebase.get()->mutex(),
+        THREAD_ANNOTATION_ACQUIRE(filebase->mutex(),
+                                  filebase.get()->mutex(),
                                   filebase.get_as<RegularFile>()->mutex(),
                                   filebase.get_as<Symlink>()->mutex(),
                                   filebase.get_as<Directory>()->mutex())
