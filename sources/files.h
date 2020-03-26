@@ -87,7 +87,7 @@ protected:
     /**
      * Subclasss should override this if additional flush operations are needed
      */
-    virtual void subflush() {}
+    virtual void subflush() THREAD_ANNOTATION_REQUIRES(m_lock) {}
 
 public:
     static const byte REGULAR_FILE = S_IFREG >> 12, SYMLINK = S_IFLNK >> 12,

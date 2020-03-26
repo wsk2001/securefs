@@ -178,39 +178,36 @@ namespace internal
     void remove(FileSystemContext* fs, const char* path)
     {
         std::string last_component;
-        auto dir_guard = open_base_dir(fs, path, last_component);
-        auto dir = dir_guard.get_as<Directory>();
+        auto auto_closed_dir = open_base_dir(fs, path, last_component);
         if (last_component.empty())
             throwVFSException(EPERM);
         id_type id;
         int type;
-        if (!dir->get_entry(last_component, id, type))
+        AutoClosedFileLockGuard dir_lock_guard(auto_closed_dir);
+        if (!auto_closed_dir.get_as<Directory>()->get_entry(last_component, id, type))
             throwVFSException(ENOENT);
 
-        AutoClosedFileBase inner_guard = open_as(fs->table, id, type);
-        auto inner_fb = inner_guard.get();
+        AutoClosedFileBase auto_closed_inner_file = open_as(fs->table, id, type);
+        AutoClosedFileLockGuard inner_lock_guard(auto_closed_inner_file);
 
-        if (inner_fb->type() == FileBase::DIRECTORY && !static_cast<Directory*>(inner_fb)->empty())
+        if (auto_closed_inner_file->type() == FileBase::DIRECTORY
+            && !static_cast<Directory*>(auto_closed_inner_file.get())->empty())
         {
             std::string contents;
-            LockGuard<Mutex> inner_lock_guard(inner_fb->mutex());
-            static_cast<Directory*>(inner_fb)->iterate_over_entries(
-                [&contents](const std::string& str, const id_type&, int) -> bool {
-                    contents.push_back('\n');
-                    contents += str;
-                    return true;
-                });
+            static_cast<Directory*>(auto_closed_inner_file.get())
+                ->iterate_over_entries(
+                    [&contents](const std::string& str, const id_type&, int) -> bool {
+                        contents.push_back('\n');
+                        contents += str;
+                        return true;
+                    });
             WARN_LOG("Trying to remove a non-empty directory \"%s\" with contents: %s",
                      path,
                      contents.c_str());
             throwVFSException(ENOTEMPTY);
         }
-        {
-            LockGuard<Mutex> dir_lock_guard(dir->mutex());
-            dir->remove_entry(last_component, id, type);
-        }
-        LockGuard<Mutex> inner_lock_guard(inner_fb->mutex());
-        inner_fb->unlink();
+        auto_closed_dir.get_as<Directory>()->remove_entry(last_component, id, type);
+        auto_closed_inner_file->unlink();
     }
 
     inline bool is_readonly(struct fuse_context* ctx) { return get_fs(ctx)->table.is_readonly(); }
@@ -365,10 +362,9 @@ namespace operations
                 return -EROFS;
             auto fg = internal::open_all(fs, path);
             AutoClosedFileLockGuard lock_guard(fg);
-            RegularFile* file = fg->cast_as<RegularFile>();
             if (info->flags & O_TRUNC)
             {
-                file->truncate(0);
+                fg.get_as<RegularFile>()->truncate(0);
             }
             info->fh = reinterpret_cast<uintptr_t>(fg.release());
 
