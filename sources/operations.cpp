@@ -142,6 +142,8 @@ namespace internal
         generate_random(id.data(), id.size());
 
         AutoClosedFileBase result(&fs->table, fs->table.create_as(id, type));
+
+        DoubleAutoClosedFileLockGuard lock_guard(dir, result);
         result->initialize_empty(mode, uid, gid);
 
         try
@@ -163,6 +165,7 @@ namespace internal
         try
         {
             AutoClosedFileBase to_be_removed(&fs->table, fs->table.open_as(id, type));
+            AutoClosedFileLockGuard lock_guard(to_be_removed);
             to_be_removed->unlink();
         }
         catch (...)
@@ -261,10 +264,10 @@ namespace operations
             if (!st)
                 return -EINVAL;
 
-            internal::AutoClosedFileBase fg(nullptr, nullptr);
+            AutoClosedFileBase fg(nullptr, nullptr);
             if (!internal::open_all(fs, path, fg))
                 return -ENOENT;
-            LockGuard<Mutex> lock_guard(fg->mutex());
+            AutoClosedFileLockGuard lock_guard(fg);
             fg->stat(st);
             st->st_uid = OSService::getuid();
             st->st_gid = OSService::getgid();
@@ -321,7 +324,7 @@ namespace operations
                 }
                 return success;
             };
-            LockGuard<Mutex> lock_guard(fb->mutex());
+            FileLockGuard lock_guard(*fb);
             fb->cast_as<Directory>()->iterate_over_entries(actions);
             return 0;
         }
@@ -361,6 +364,7 @@ namespace operations
             if (require_write && internal::is_readonly(ctx))
                 return -EROFS;
             auto fg = internal::open_all(fs, path);
+            AutoClosedFileLockGuard lock_guard(fg);
             RegularFile* file = fg->cast_as<RegularFile>();
             if (info->flags & O_TRUNC)
             {
@@ -382,8 +386,9 @@ namespace operations
             auto fb = reinterpret_cast<FileBase*>(info->fh);
             if (!fb)
                 return -EINVAL;
+            FileLockGuard lock_guard(*fb);
             fb->flush();
-            internal::AutoClosedFileBase fg(&internal::get_fs(ctx)->table, fb);
+            AutoClosedFileBase fg(&internal::get_fs(ctx)->table, fb);
             fg.reset(nullptr);
             return 0;
         }
@@ -400,6 +405,7 @@ namespace operations
             auto fb = reinterpret_cast<FileBase*>(info->fh);
             if (!fb)
                 return -EFAULT;
+            FileLockGuard lock_guard(*fb);
             return static_cast<int>(fb->cast_as<RegularFile>()->read(buffer, off, len));
         }
         OPT_CATCH_WITH_PATH_OFF_LEN(off, len)
@@ -417,6 +423,7 @@ namespace operations
             auto fb = reinterpret_cast<FileBase*>(info->fh);
             if (!fb)
                 return -EFAULT;
+            FileLockGuard lock_guard(*fb);
             fb->cast_as<RegularFile>()->write(buffer, off, len);
             return static_cast<int>(len);
         }
@@ -432,6 +439,7 @@ namespace operations
             auto fb = reinterpret_cast<FileBase*>(info->fh);
             if (!fb)
                 return -EFAULT;
+            FileLockGuard lock_guard(*fb);
             fb->cast_as<RegularFile>()->flush();
             return 0;
         }
@@ -445,6 +453,7 @@ namespace operations
         try
         {
             auto fg = internal::open_all(fs, path);
+            AutoClosedFileLockGuard lock_guard(fg);
             fg.get_as<RegularFile>()->truncate(size);
             fg->flush();
             return 0;
@@ -461,7 +470,7 @@ namespace operations
             auto fb = reinterpret_cast<FileBase*>(info->fh);
             if (!fb)
                 return -EFAULT;
-            LockGuard<Mutex> lock_guard(fb->mutex());
+            FileLockGuard lock_guard(*fb);
             fb->cast_as<RegularFile>()->truncate(size);
             fb->flush();
             return 0;
@@ -512,7 +521,7 @@ namespace operations
             auto original_mode = fg->get_mode();
             mode &= 0777;
             mode |= original_mode & S_IFMT;
-            LockGuard<Mutex> lock_guard(fg->mutex());
+            AutoClosedFileLockGuard lock_guard(fg);
             fg->set_mode(mode);
             fg->flush();
             return 0;
@@ -527,6 +536,7 @@ namespace operations
         try
         {
             auto fg = internal::open_all(fs, path);
+            AutoClosedFileLockGuard lock_guard(fg);
             fg->set_uid(uid);
             fg->set_gid(gid);
             fg->flush();
@@ -547,6 +557,7 @@ namespace operations
                 return -EROFS;
             auto fg
                 = internal::create(fs, from, FileBase::SYMLINK, S_IFLNK | 0755, ctx->uid, ctx->gid);
+            AutoClosedFileLockGuard lock_guard(fg);
             fg.get_as<Symlink>()->set(to);
             return 0;
         }
@@ -562,7 +573,7 @@ namespace operations
         try
         {
             auto fg = internal::open_all(fs, path);
-            LockGuard<Mutex> lock_guard(fg->mutex());
+            AutoClosedFileLockGuard lock_guard(fg);
             auto destination = fg.get_as<Symlink>()->get();
             memset(buf, 0, size);
             memcpy(buf, destination.data(), std::min(destination.size(), size - 1));
@@ -637,7 +648,7 @@ namespace operations
                 return -EEXIST;
 
             auto&& table = internal::get_fs(ctx)->table;
-            internal::AutoClosedFileBase guard(&table, table.open_as(src_id, src_type));
+            AutoClosedFileBase guard(&table, table.open_as(src_id, src_type));
 
             if (guard->type() != FileBase::REGULAR_FILE)
                 return -EPERM;
@@ -658,7 +669,7 @@ namespace operations
             auto fb = reinterpret_cast<FileBase*>(fi->fh);
             if (!fb)
                 return -EFAULT;
-            LockGuard<Mutex> lock_guard(fb->mutex());
+            FileLockGuard lock_guard(*fb);
             fb->flush();
             fb->fsync();
             return 0;
@@ -678,7 +689,7 @@ namespace operations
         try
         {
             auto fg = internal::open_all(fs, path);
-            LockGuard<Mutex> lock_guard(fg->mutex());
+            AutoClosedFileLockGuard lock_guard(fg);
             fg->utimens(ts);
             return 0;
         }
@@ -694,7 +705,11 @@ namespace operations
         try
         {
             auto fg = internal::open_all(fs, path);
-            int rc = static_cast<int>(fg->listxattr(list, size));
+            int rc;
+            {
+                AutoClosedFileLockGuard lock_guard(fg);
+                rc = static_cast<int>(fg->listxattr(list, size));
+            }
             transform_listxattr_result(list, size);
             return rc;
         }
@@ -735,6 +750,7 @@ namespace operations
         try
         {
             auto fg = internal::open_all(fs, path);
+            AutoClosedFileLockGuard lock_guard(fg);
             return static_cast<int>(fg->getxattr(name, value, size));
         }
         XATTR_COMMON_CATCH_BLOCK
@@ -759,6 +775,7 @@ namespace operations
         try
         {
             auto fg = internal::open_all(fs, path);
+            AutoClosedFileLockGuard lock_guard(fg);
             fg->setxattr(name, value, size, flags);
             return 0;
         }
@@ -775,6 +792,7 @@ namespace operations
         try
         {
             auto fg = internal::open_all(fs, path);
+            AutoClosedFileLockGuard lock_guard(fg);
             fg->removexattr(name);
             return 0;
         }
