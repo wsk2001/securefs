@@ -145,28 +145,6 @@ public:
     ~AutoClosedFileLockGuard() THREAD_ANNOTATION_RELEASE() { fp->get()->mutex().unlock(); }
 };
 
-class THREAD_ANNOTATION_SCOPED_CAPABILITY DoubleAutoClosedFileLockGuard
-{
-private:
-    DoubleFileLockGuard internal_guard;
-
-public:
-    explicit DoubleAutoClosedFileLockGuard(AutoClosedFileBase& filebase1,
-                                           AutoClosedFileBase& filebase2)
-        THREAD_ANNOTATION_ACQUIRE(filebase1.get()->mutex(),
-                                  filebase1.get_as<RegularFile>()->mutex(),
-                                  filebase1.get_as<Symlink>()->mutex(),
-                                  filebase1.get_as<Directory>()->mutex(),
-                                  filebase2.get()->mutex(),
-                                  filebase2.get_as<RegularFile>()->mutex(),
-                                  filebase2.get_as<Symlink>()->mutex(),
-                                  filebase2.get_as<Directory>()->mutex())
-        : internal_guard(*filebase1.get(), *filebase2.get())
-    {
-    }
-    ~DoubleAutoClosedFileLockGuard() THREAD_ANNOTATION_RELEASE() {}
-};
-
 inline AutoClosedFileBase open_as(FileTable& table, const id_type& id, int type)
 {
     return AutoClosedFileBase(&table, table.open_as(id, type));

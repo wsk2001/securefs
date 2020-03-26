@@ -143,7 +143,8 @@ namespace internal
 
         AutoClosedFileBase result(&fs->table, fs->table.create_as(id, type));
 
-        DoubleAutoClosedFileLockGuard lock_guard(dir, result);
+        AutoClosedFileLockGuard dir_guard(dir);
+        AutoClosedFileLockGuard result_guard(result);
         result->initialize_empty(mode, uid, gid);
 
         try
