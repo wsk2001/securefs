@@ -57,16 +57,15 @@ namespace internal
         return static_cast<FileSystemContext*>(ctx->private_data);
     }
 
-    typedef AutoClosedFileBase FileGuard;
-
-    FileGuard open_base_dir(FileSystemContext* fs, const char* path, std::string& last_component)
+    AutoClosedFileBase
+    open_base_dir(FileSystemContext* fs, const char* path, std::string& last_component)
     {
         std::vector<std::string> components = split(
             transform(path, fs->flags & kOptionCaseFoldFileName, fs->flags & kOptionNFCFileName)
                 .get(),
             '/');
 
-        FileGuard result(&fs->table, fs->table.open_as(fs->root_id, FileBase::DIRECTORY));
+        AutoClosedFileBase result(&fs->table, fs->table.open_as(fs->root_id, FileBase::DIRECTORY));
         if (components.empty())
         {
             last_component = std::string();
@@ -92,7 +91,7 @@ namespace internal
         return result;
     }
 
-    FileGuard open_all(FileSystemContext* fs, const char* path)
+    AutoClosedFileBase open_all(FileSystemContext* fs, const char* path)
     {
         std::string last_component;
         auto fg = open_base_dir(fs, path, last_component);
@@ -112,7 +111,7 @@ namespace internal
     }
 
     // Specialization of `open_all` since `VFSException(ENOENT)` occurs too frequently
-    bool open_all(FileSystemContext* fs, const char* path, FileGuard& fg)
+    bool open_all(FileSystemContext* fs, const char* path, AutoClosedFileBase& fg)
     {
         std::string last_component;
         fg = open_base_dir(fs, path, last_component);
@@ -130,19 +129,19 @@ namespace internal
         return true;
     }
 
-    FileGuard create(FileSystemContext* fs,
-                     const char* path,
-                     int type,
-                     uint32_t mode,
-                     uint32_t uid,
-                     uint32_t gid)
+    AutoClosedFileBase create(FileSystemContext* fs,
+                              const char* path,
+                              int type,
+                              uint32_t mode,
+                              uint32_t uid,
+                              uint32_t gid)
     {
         std::string last_component;
         auto dir = open_base_dir(fs, path, last_component);
         id_type id;
         generate_random(id.data(), id.size());
 
-        FileGuard result(&fs->table, fs->table.create_as(id, type));
+        AutoClosedFileBase result(&fs->table, fs->table.create_as(id, type));
         result->initialize_empty(mode, uid, gid);
 
         try
@@ -163,7 +162,7 @@ namespace internal
     {
         try
         {
-            FileGuard to_be_removed(&fs->table, fs->table.open_as(id, type));
+            AutoClosedFileBase to_be_removed(&fs->table, fs->table.open_as(id, type));
             to_be_removed->unlink();
         }
         catch (...)
@@ -185,7 +184,7 @@ namespace internal
         if (!dir->get_entry(last_component, id, type))
             throwVFSException(ENOENT);
 
-        FileGuard inner_guard = open_as(fs->table, id, type);
+        AutoClosedFileBase inner_guard = open_as(fs->table, id, type);
         auto inner_fb = inner_guard.get();
 
         if (inner_fb->type() == FileBase::DIRECTORY && !static_cast<Directory*>(inner_fb)->empty())
@@ -262,7 +261,7 @@ namespace operations
             if (!st)
                 return -EINVAL;
 
-            internal::FileGuard fg(nullptr, nullptr);
+            internal::AutoClosedFileBase fg(nullptr, nullptr);
             if (!internal::open_all(fs, path, fg))
                 return -ENOENT;
             LockGuard<Mutex> lock_guard(fg->mutex());
@@ -384,7 +383,7 @@ namespace operations
             if (!fb)
                 return -EINVAL;
             fb->flush();
-            internal::FileGuard fg(&internal::get_fs(ctx)->table, fb);
+            internal::AutoClosedFileBase fg(&internal::get_fs(ctx)->table, fb);
             fg.reset(nullptr);
             return 0;
         }
@@ -638,7 +637,7 @@ namespace operations
                 return -EEXIST;
 
             auto&& table = internal::get_fs(ctx)->table;
-            internal::FileGuard guard(&table, table.open_as(src_id, src_type));
+            internal::AutoClosedFileBase guard(&table, table.open_as(src_id, src_type));
 
             if (guard->type() != FileBase::REGULAR_FILE)
                 return -EPERM;
