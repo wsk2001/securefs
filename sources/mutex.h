@@ -1,6 +1,9 @@
 #pragma once
+#include "exceptions.h"
 #include "thread_safety_annotations.hpp"
 
+#include <chrono>
+#include <errno.h>
 #include <mutex>
 
 namespace securefs
@@ -18,6 +21,26 @@ public:
 
 private:
     std::mutex mut_;
+};
+
+class THREAD_ANNOTATION_CAPABILITY("mutex") TimedMutex
+{
+public:
+    void lock() THREAD_ANNOTATION_ACQUIRE()
+    {
+        if (!mut_.try_lock_for(std::chrono::seconds(10)))
+        {
+            throwVFSException(EBUSY);
+        }
+    }
+
+    void unlock() THREAD_ANNOTATION_RELEASE() { mut_.unlock(); }
+
+    // Needed for negative capabilities to work
+    TimedMutex& operator!() { return *this; };
+
+private:
+    std::timed_mutex mut_;
 };
 
 template <class Lockable>

@@ -36,7 +36,7 @@ private:
                   "Constants are wrong!");
 
 protected:
-    Mutex m_lock;
+    TimedMutex m_lock;
 
 private:
     std::atomic<ptrdiff_t> m_refcount;
@@ -87,7 +87,7 @@ protected:
     /**
      * Subclasss should override this if additional flush operations are needed
      */
-    virtual void subflush() THREAD_ANNOTATION_REQUIRES(m_lock) {}
+    virtual void subflush() {}
 
 public:
     static const byte REGULAR_FILE = S_IFREG >> 12, SYMLINK = S_IFLNK >> 12,
@@ -141,7 +141,7 @@ public:
     virtual ~FileBase();
     DISABLE_COPY_MOVE(FileBase)
 
-    Mutex& mutex() THREAD_ANNOTATION_RETURN_CAPABILITY(m_lock) { return m_lock; }
+    TimedMutex& mutex() THREAD_ANNOTATION_RETURN_CAPABILITY(m_lock) { return m_lock; }
 
     void initialize_empty(uint32_t mode, uint32_t uid, uint32_t gid)
         THREAD_ANNOTATION_REQUIRES(m_lock);

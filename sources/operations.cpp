@@ -587,17 +587,19 @@ namespace operations
         try
         {
             std::string src_filename, dst_filename;
-            auto src_dir_guard = internal::open_base_dir(fs, src, src_filename);
-            auto dst_dir_guard = internal::open_base_dir(fs, dst, dst_filename);
-            auto src_dir = src_dir_guard.get_as<Directory>();
-            auto dst_dir = dst_dir_guard.get_as<Directory>();
+            auto src_dir = internal::open_base_dir(fs, src, src_filename);
+            auto dst_dir = internal::open_base_dir(fs, dst, dst_filename);
 
             id_type src_id, dst_id;
             int src_type, dst_type;
 
-            if (!src_dir->get_entry(src_filename, src_id, src_type))
+            AutoClosedFileLockGuard src_lock_guard(src_dir);
+            AutoClosedFileLockGuard dst_lock_guard(dst_dir);
+
+            if (!src_dir.get_as<Directory>()->get_entry(src_filename, src_id, src_type))
                 return -ENOENT;
-            bool dst_exists = (dst_dir->get_entry(dst_filename, dst_id, dst_type));
+            bool dst_exists
+                = (dst_dir.get_as<Directory>()->get_entry(dst_filename, dst_id, dst_type));
 
             if (dst_exists)
             {
@@ -607,10 +609,10 @@ namespace operations
                     return -EISDIR;
                 if (src_type != dst_type)
                     return -EINVAL;
-                dst_dir->remove_entry(dst_filename, dst_id, dst_type);
+                dst_dir.get_as<Directory>()->remove_entry(dst_filename, dst_id, dst_type);
             }
-            src_dir->remove_entry(src_filename, src_id, src_type);
-            dst_dir->add_entry(dst_filename, src_id, src_type);
+            src_dir.get_as<Directory>()->remove_entry(src_filename, src_id, src_type);
+            dst_dir.get_as<Directory>()->add_entry(dst_filename, src_id, src_type);
 
             if (dst_exists)
                 internal::remove(fs, dst_id, dst_type);
@@ -628,29 +630,33 @@ namespace operations
         try
         {
             std::string src_filename, dst_filename;
-            auto src_dir_guard = internal::open_base_dir(fs, src, src_filename);
-            auto dst_dir_guard = internal::open_base_dir(fs, dst, dst_filename);
-            auto src_dir = src_dir_guard.get_as<Directory>();
-            auto dst_dir = dst_dir_guard.get_as<Directory>();
+            auto src_dir = internal::open_base_dir(fs, src, src_filename);
+            auto dst_dir = internal::open_base_dir(fs, dst, dst_filename);
 
             id_type src_id, dst_id;
             int src_type, dst_type;
 
-            bool src_exists = src_dir->get_entry(src_filename, src_id, src_type);
+            AutoClosedFileLockGuard src_lock_guard(src_dir);
+            AutoClosedFileLockGuard dst_lock_guard(dst_dir);
+
+            bool src_exists
+                = src_dir.get_as<Directory>()->get_entry(src_filename, src_id, src_type);
             if (!src_exists)
                 return -ENOENT;
-            bool dst_exists = dst_dir->get_entry(dst_filename, dst_id, dst_type);
+            bool dst_exists
+                = dst_dir.get_as<Directory>()->get_entry(dst_filename, dst_id, dst_type);
             if (dst_exists)
                 return -EEXIST;
 
             auto&& table = internal::get_fs(ctx)->table;
-            AutoClosedFileBase guard(&table, table.open_as(src_id, src_type));
+            AutoClosedFileBase inner_file(&table, table.open_as(src_id, src_type));
 
-            if (guard->type() != FileBase::REGULAR_FILE)
+            if (inner_file->type() != FileBase::REGULAR_FILE)
                 return -EPERM;
 
-            guard->set_nlink(guard->get_nlink() + 1);
-            dst_dir->add_entry(dst_filename, src_id, src_type);
+            AutoClosedFileLockGuard inner_lock_guard(inner_file);
+            inner_file->set_nlink(inner_file->get_nlink() + 1);
+            dst_dir.get_as<Directory>()->add_entry(dst_filename, src_id, src_type);
             return 0;
         }
         OPT_CATCH_WITH_TWO_PATHS(src, dst)

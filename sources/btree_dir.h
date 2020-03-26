@@ -158,7 +158,7 @@ private:
     void mutable_recursive_iterate(Node* n, const Callback& cb, int depth);
 
 protected:
-    void subflush() override;
+    void subflush() THREAD_ANNOTATION_REQUIRES(m_lock) override;
 
 public:
     template <class... Args>
