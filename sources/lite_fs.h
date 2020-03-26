@@ -83,7 +83,7 @@ namespace lite
         }
         void lock_shared() THREAD_ANNOTATION_ACQUIRE_SHARED()
         {
-            m_lock.lock();
+            m_lock.lock_shared();
             try
             {
                 m_file_stream->lock(false);
