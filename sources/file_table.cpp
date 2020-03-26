@@ -291,6 +291,7 @@ void FileTable::finalize(std::unique_ptr<FileBase>& fb)
     }
     else
     {
+        LockGuard<Mutex> fb_lock_guard(fb->mutex());
         fb->flush();
     }
 }

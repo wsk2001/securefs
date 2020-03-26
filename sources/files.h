@@ -141,6 +141,8 @@ public:
     virtual ~FileBase();
     DISABLE_COPY_MOVE(FileBase)
 
+    Mutex& mutex() THREAD_ANNOTATION_RETURN_CAPABILITY(m_lock) { return m_lock; }
+
     void initialize_empty(uint32_t mode, uint32_t uid, uint32_t gid)
         THREAD_ANNOTATION_REQUIRES(m_lock);
 

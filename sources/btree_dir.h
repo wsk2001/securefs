@@ -175,7 +175,7 @@ protected:
 
 public:
     virtual bool empty() override;
-    void rebuild();
+    void rebuild() THREAD_ANNOTATION_REQUIRES(m_lock);
 
 public:
     bool validate_free_list();

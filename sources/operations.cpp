@@ -77,7 +77,11 @@ namespace internal
 
         for (size_t i = 0; i + 1 < components.size(); ++i)
         {
-            bool exists = result.get_as<Directory>()->get_entry(components[i], id, type);
+            bool exists;
+            {
+                LockGuard<Mutex> lock_guard(result->mutex());
+                exists = result.get_as<Directory>()->get_entry(components[i], id, type);
+            }
             if (!exists)
                 throwVFSException(ENOENT);
             if (type != FileBase::DIRECTORY)
@@ -96,7 +100,11 @@ namespace internal
             return fg;
         id_type id;
         int type;
-        bool exists = fg.get_as<Directory>()->get_entry(last_component, id, type);
+        bool exists;
+        {
+            LockGuard<Mutex> lock_guard(fg->mutex());
+            exists = fg.get_as<Directory>()->get_entry(last_component, id, type);
+        }
         if (!exists)
             throwVFSException(ENOENT);
         fg.reset(fs->table.open_as(id, type));
@@ -178,6 +186,7 @@ namespace internal
 
         FileGuard inner_guard = open_as(fs->table, id, type);
         auto inner_fb = inner_guard.get();
+
         if (inner_fb->type() == FileBase::DIRECTORY && !static_cast<Directory*>(inner_fb)->empty())
         {
             std::string contents;
@@ -306,6 +315,7 @@ namespace operations
                 }
                 return success;
             };
+            LockGuard<Mutex> lock_guard(fg->mutex());
             fb->cast_as<Directory>()->iterate_over_entries(actions);
             return 0;
         }
@@ -445,6 +455,7 @@ namespace operations
             auto fb = reinterpret_cast<FileBase*>(info->fh);
             if (!fb)
                 return -EFAULT;
+            LockGuard<Mutex> lock_guard(fg->mutex());
             fb->cast_as<RegularFile>()->truncate(size);
             fb->flush();
             return 0;
@@ -495,6 +506,7 @@ namespace operations
             auto original_mode = fg->get_mode();
             mode &= 0777;
             mode |= original_mode & S_IFMT;
+            LockGuard<Mutex> lock_guard(fg->mutex());
             fg->set_mode(mode);
             fg->flush();
             return 0;
@@ -544,6 +556,7 @@ namespace operations
         try
         {
             auto fg = internal::open_all(fs, path);
+            LockGuard<Mutex> lock_guard(fg->mutex());
             auto destination = fg.get_as<Symlink>()->get();
             memset(buf, 0, size);
             memcpy(buf, destination.data(), std::min(destination.size(), size - 1));
@@ -639,6 +652,7 @@ namespace operations
             auto fb = reinterpret_cast<FileBase*>(fi->fh);
             if (!fb)
                 return -EFAULT;
+            LockGuard<Mutex> lock_guard(fg->mutex());
             fb->flush();
             fb->fsync();
             return 0;
@@ -658,6 +672,7 @@ namespace operations
         try
         {
             auto fg = internal::open_all(fs, path);
+            LockGuard<Mutex> lock_guard(fg->mutex());
             fg->utimens(ts);
             return 0;
         }
