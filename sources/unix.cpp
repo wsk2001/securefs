@@ -3,6 +3,7 @@
 #include "exceptions.h"
 #include "lock_enabled.h"
 #include "logger.h"
+#include "mutex.h"
 #include "platform.h"
 #include "streams.h"
 
@@ -685,5 +686,27 @@ std::unique_ptr<const char, void (*)(const char*)> get_type_name(const std::exce
 
 const char* PATH_SEPARATOR_STRING = "/";
 const char PATH_SEPARATOR_CHAR = '/';
+
+Mutex::Mutex()
+{
+    int rc = pthread_mutex_init(&m_lock, nullptr);
+    if (rc != 0)
+    {
+        THROW_POSIX_EXCEPTION(rc, "pthread_mutex_init");
+    }
+}
+
+Mutex::~Mutex() { pthread_mutex_destroy(&m_lock); }
+
+void Mutex::lock()
+{
+    int rc = pthread_mutex_lock(&m_lock);
+    if (rc != 0)
+    {
+        THROW_POSIX_EXCEPTION(rc, "pthread_mutex_lock");
+    }
+}
+
+void Mutex::unlock() noexcept { pthread_mutex_unlock(&m_lock); }
 }    // namespace securefs
 #endif

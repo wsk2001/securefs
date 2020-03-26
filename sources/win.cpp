@@ -2,6 +2,7 @@
 #include "lock_enabled.h"
 #include "logger.h"
 #include "platform.h"
+#include "mutex.h"
 
 #include <winfsp/winfsp.h>
 
@@ -1226,6 +1227,11 @@ std::unique_ptr<const char, void (*)(const char*)> get_type_name(const std::exce
 
 const char* PATH_SEPARATOR_STRING = "\\";
 const char PATH_SEPARATOR_CHAR = '\\';
+
+Mutex::Mutex() { InitializeCriticalSection(&m_lock); }
+Mutex::~Mutex() { DeleteCriticalSection(&m_lock); }
+void Mutex::lock() { EnterCriticalSection(&m_lock); }
+void Mutex::unlock() noexcept { LeaveCriticalSection(&m_lock); }
 }    // namespace securefs
 
 #endif
