@@ -196,6 +196,12 @@ public:
 typedef PODArray<byte, KEY_LENGTH> key_type;
 typedef PODArray<byte, ID_LENGTH> id_type;
 
+inline bool operator<(const id_type& id1, const id_type& id2)
+{
+    return std::lexicographical_compare(
+        id1.data(), id1.data() + id1.size(), id2.data(), id2.size());
+}
+
 template <class Iterator, class T>
 inline bool is_all_equal(Iterator begin, Iterator end, const T& value)
 {

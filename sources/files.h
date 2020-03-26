@@ -469,6 +469,50 @@ public:
     ~FileLockGuard() THREAD_ANNOTATION_RELEASE() { fp->mutex().unlock(); }
 };
 
+class THREAD_ANNOTATION_SCOPED_CAPABILITY DoubleFileLockGuard
+{
+private:
+    FileBase* fp1;
+    FileBase* fp2;
+
+public:
+    explicit DoubleFileLockGuard(FileBase& filebase1, FileBase& filebase2)
+        THREAD_ANNOTATION_ACQUIRE(filebase1.mutex(),
+                                  filebase1.cast_as<RegularFile>()->mutex(),
+                                  filebase1.cast_as<Symlink>()->mutex(),
+                                  filebase1.cast_as<Directory>()->mutex(),
+                                  filebase2.mutex(),
+                                  filebase2.cast_as<RegularFile>()->mutex(),
+                                  filebase2.cast_as<Symlink>()->mutex(),
+                                  filebase2.cast_as<Directory>()->mutex())
+        : fp1(&filebase1), fp2(&filebase2)
+    {
+        if (fp1->get_id() < fp2->get_id())
+        {
+            fp1->mutex().lock();
+            fp2->mutex().lock();
+        }
+        else
+        {
+            fp2->mutex().lock();
+            fp1->mutex().lock();
+        }
+    }
+    ~DoubleFileLockGuard() THREAD_ANNOTATION_RELEASE()
+    {
+        if (fp1->get_id() < fp2->get_id())
+        {
+            fp2->mutex().unlock();
+            fp1->mutex().unlock();
+        }
+        else
+        {
+            fp1->mutex().unlock();
+            fp2->mutex().unlock();
+        }
+    }
+};
+
 class SimpleDirectory : public Directory
 {
 private:
