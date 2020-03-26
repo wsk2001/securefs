@@ -77,6 +77,7 @@ void fix_hardlink_count(operations::FileSystemContext* fs,
                         Directory* dir,
                         std::unordered_map<id_type, int, id_hash>* nlink_map,
                         NLinkFixPhase phase)
+    THREAD_ANNOTATION_NO_THREAD_SAFETY_ANALYSIS    // Methods in this file are all single threaded
 {
     std::vector<std::pair<id_type, int>> listings;
     dir->iterate_over_entries([&listings](const std::string&, const id_type& id, int type) {
@@ -124,6 +125,7 @@ void fix_helper(operations::FileSystemContext* fs,
                 Directory* dir,
                 const std::string& dir_name,
                 std::unordered_set<id_type, id_hash>* all_ids)
+    THREAD_ANNOTATION_NO_THREAD_SAFETY_ANALYSIS    // Methods in this file are all single threaded
 {
     std::vector<std::tuple<std::string, id_type, int>> listings;
     dir->iterate_over_entries([&listings](const std::string& name, const id_type& id, int type) {
@@ -196,6 +198,7 @@ void fix_helper(operations::FileSystemContext* fs,
 }
 
 void fix(const std::string& basedir, operations::FileSystemContext* fs)
+    THREAD_ANNOTATION_NO_THREAD_SAFETY_ANALYSIS    // Methods in this file are all single threaded
 {
     std::unordered_set<id_type, id_hash> all_ids{fs->root_id};
     AutoClosedFileBase root_dir = open_as(fs->table, fs->root_id, FileBase::DIRECTORY);
@@ -653,7 +656,8 @@ public:
         get_password(true);
     }
 
-    int execute() override
+    int execute() override THREAD_ANNOTATION_NO_THREAD_SAFETY_ANALYSIS    // Methods in this file
+                                                                          // are all single threaded
     {
         if (format.isSet() && store_time.isSet())
         {
