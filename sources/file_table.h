@@ -2,6 +2,7 @@
 #include "constants.h"
 #include "exceptions.h"
 #include "files.h"
+#include "mutex.h"
 #include "myutils.h"
 #include "platform.h"
 #include "streams.h"
@@ -28,16 +29,17 @@ private:
     static const int MAX_NUM_CLOSED = 101, NUM_EJECT = 8;
 
 private:
-    key_type m_master_key;
-    table_type m_files;
-    std::vector<id_type> m_closed_ids;
+    Mutex m_lock;
+    const key_type m_master_key;
+    table_type m_files THREAD_ANNOTATION_GUARDED_BY(m_lock);
+    std::vector<id_type> m_closed_ids THREAD_ANNOTATION_GUARDED_BY(m_lock);
     std::unique_ptr<FileTableIO> m_fio;
-    uint32_t m_flags;
-    unsigned m_block_size, m_iv_size;
+    const uint32_t m_flags;
+    const unsigned m_block_size, m_iv_size;
     std::shared_ptr<const OSService> m_root;
 
 private:
-    void eject();
+    void eject() THREAD_ANNOTATION_REQUIRES(m_lock);
     void finalize(std::unique_ptr<FileBase>&);
 
 public:
@@ -48,13 +50,13 @@ public:
                        unsigned block_size,
                        unsigned iv_size);
     ~FileTable();
-    FileBase* open_as(const id_type& id, int type);
-    FileBase* create_as(const id_type& id, int type);
-    void close(FileBase*);
+    FileBase* open_as(const id_type& id, int type) THREAD_ANNOTATION_REQUIRES(!m_lock);
+    FileBase* create_as(const id_type& id, int type) THREAD_ANNOTATION_REQUIRES(!m_lock);
+    void close(FileBase*) THREAD_ANNOTATION_REQUIRES(!m_lock);
     bool is_readonly() const noexcept { return (m_flags & kOptionReadOnly) != 0; }
     bool is_auth_enabled() const noexcept { return (m_flags & kOptionNoAuthentication) == 0; }
     bool is_time_stored() const noexcept { return (m_flags & kOptionStoreTime) != 0; }
-    void gc();
+    void gc() THREAD_ANNOTATION_REQUIRES(m_lock);
     void statfs(struct fuse_statvfs* fs_info) { m_root->statfs(fs_info); }
 };
 

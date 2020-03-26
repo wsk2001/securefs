@@ -149,9 +149,12 @@ FileTable::FileTable(int version,
                      uint32_t flags,
                      unsigned block_size,
                      unsigned iv_size)
-    : m_flags(flags), m_block_size(block_size), m_iv_size(iv_size), m_root(root)
+    : m_master_key(master_key)
+    , m_flags(flags)
+    , m_block_size(block_size)
+    , m_iv_size(iv_size)
+    , m_root(root)
 {
-    memcpy(m_master_key.data(), master_key.data(), master_key.size());
     switch (version)
     {
     case 1:
@@ -174,6 +177,7 @@ FileTable::~FileTable()
 
 FileBase* FileTable::open_as(const id_type& id, int type)
 {
+    LockGuard<Mutex> lock_guard(m_lock);
     auto it = m_files.find(id);
     if (it != m_files.end())
     {
@@ -212,6 +216,7 @@ FileBase* FileTable::create_as(const id_type& id, int type)
 {
     if (is_readonly())
         throwVFSException(EROFS);
+    LockGuard<Mutex> lock_guard(m_lock);
     if (m_files.find(id) != m_files.end())
         throwVFSException(EEXIST);
 
@@ -237,6 +242,7 @@ void FileTable::close(FileBase* fb)
     if (!fb)
         throwVFSException(EFAULT);
 
+    LockGuard<Mutex> lock_guard(m_lock);
     auto iter = m_files.find(fb->get_id());
     if (iter == m_files.end() || iter->second.get() != fb)
         throwInvalidArgumentException("ID does not match the table");

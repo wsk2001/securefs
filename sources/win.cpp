@@ -1,8 +1,8 @@
 #ifdef _WIN32
 #include "lock_enabled.h"
 #include "logger.h"
-#include "platform.h"
 #include "mutex.h"
+#include "platform.h"
 
 #include <winfsp/winfsp.h>
 

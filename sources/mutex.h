@@ -1,3 +1,4 @@
+#pragma once
 #include "thread_safety_annotations.hpp"
 
 #ifdef WIN32
@@ -18,6 +19,9 @@ public:
     ~Mutex();
     void lock() THREAD_ANNOTATION_ACQUIRE();
     void unlock() noexcept THREAD_ANNOTATION_RELEASE();
+
+    // Needed for negative capabilities to work
+    Mutex& operator!() { return *this; };
 
 private:
 #ifdef WIN32
