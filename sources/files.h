@@ -451,6 +451,24 @@ protected:
     virtual void iterate_over_entries_impl(const callback& cb) = 0;
 };
 
+class THREAD_ANNOTATION_SCOPED_CAPABILITY FileLockGuard
+{
+private:
+    FileBase* fp;
+
+public:
+    explicit FileLockGuard(FileBase& filebase)
+        THREAD_ANNOTATION_ACQUIRE(filebase.mutex(),
+                                  filebase.cast_as<RegularFile>()->mutex(),
+                                  filebase.cast_as<Symlink>()->mutex(),
+                                  filebase.cast_as<Directory>()->mutex())
+        : fp(&filebase)
+    {
+        fp->mutex().lock();
+    }
+    ~FileLockGuard() THREAD_ANNOTATION_RELEASE() { fp->mutex().unlock(); }
+};
+
 class SimpleDirectory : public Directory
 {
 private:

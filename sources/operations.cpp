@@ -77,13 +77,13 @@ namespace internal
 
         for (size_t i = 0; i + 1 < components.size(); ++i)
         {
-            bool exists;
             {
-                LockGuard<Mutex> lock_guard(result->mutex());
-                exists = result.get_as<Directory>()->get_entry(components[i], id, type);
+                AutoClosedFileLockGuard lock_guard(result);
+                if (!result.get_as<Directory>()->get_entry(components[i], id, type))
+                {
+                    throwVFSException(ENOENT);
+                }
             }
-            if (!exists)
-                throwVFSException(ENOENT);
             if (type != FileBase::DIRECTORY)
                 throwVFSException(ENOTDIR);
             result.reset(fs->table.open_as(id, type));
@@ -100,13 +100,13 @@ namespace internal
             return fg;
         id_type id;
         int type;
-        bool exists;
         {
-            LockGuard<Mutex> lock_guard(fg->mutex());
-            exists = fg.get_as<Directory>()->get_entry(last_component, id, type);
+            AutoClosedFileLockGuard lock_guard(fg);
+            bool exists = fg.get_as<Directory>()->get_entry(last_component, id, type);
+            if (!exists)
+                throwVFSException(ENOENT);
         }
-        if (!exists)
-            throwVFSException(ENOENT);
+
         fg.reset(fs->table.open_as(id, type));
         return fg;
     }
@@ -120,10 +120,11 @@ namespace internal
             return true;
         id_type id;
         int type;
-        bool exists = fg.get_as<Directory>()->get_entry(last_component, id, type);
-        if (!exists)
         {
-            return false;
+            AutoClosedFileLockGuard lock_guard(fg);
+            bool exists = fg.get_as<Directory>()->get_entry(last_component, id, type);
+            if (!exists)
+                return false;
         }
         fg.reset(fs->table.open_as(id, type));
         return true;
@@ -190,6 +191,7 @@ namespace internal
         if (inner_fb->type() == FileBase::DIRECTORY && !static_cast<Directory*>(inner_fb)->empty())
         {
             std::string contents;
+            LockGuard<Mutex> inner_lock_guard(inner_fb->mutex());
             static_cast<Directory*>(inner_fb)->iterate_over_entries(
                 [&contents](const std::string& str, const id_type&, int) -> bool {
                     contents.push_back('\n');
@@ -201,7 +203,11 @@ namespace internal
                      contents.c_str());
             throwVFSException(ENOTEMPTY);
         }
-        dir->remove_entry(last_component, id, type);
+        {
+            LockGuard<Mutex> dir_lock_guard(dir->mutex());
+            dir->remove_entry(last_component, id, type);
+        }
+        LockGuard<Mutex> inner_lock_guard(inner_fb->mutex());
         inner_fb->unlink();
     }
 
@@ -259,6 +265,7 @@ namespace operations
             internal::FileGuard fg(nullptr, nullptr);
             if (!internal::open_all(fs, path, fg))
                 return -ENOENT;
+            LockGuard<Mutex> lock_guard(fg->mutex());
             fg->stat(st);
             st->st_uid = OSService::getuid();
             st->st_gid = OSService::getgid();
@@ -315,7 +322,7 @@ namespace operations
                 }
                 return success;
             };
-            LockGuard<Mutex> lock_guard(fg->mutex());
+            LockGuard<Mutex> lock_guard(fb->mutex());
             fb->cast_as<Directory>()->iterate_over_entries(actions);
             return 0;
         }
@@ -455,7 +462,7 @@ namespace operations
             auto fb = reinterpret_cast<FileBase*>(info->fh);
             if (!fb)
                 return -EFAULT;
-            LockGuard<Mutex> lock_guard(fg->mutex());
+            LockGuard<Mutex> lock_guard(fb->mutex());
             fb->cast_as<RegularFile>()->truncate(size);
             fb->flush();
             return 0;
@@ -652,7 +659,7 @@ namespace operations
             auto fb = reinterpret_cast<FileBase*>(fi->fh);
             if (!fb)
                 return -EFAULT;
-            LockGuard<Mutex> lock_guard(fg->mutex());
+            LockGuard<Mutex> lock_guard(fb->mutex());
             fb->flush();
             fb->fsync();
             return 0;

@@ -126,6 +126,24 @@ public:
     }
 };
 
+class THREAD_ANNOTATION_SCOPED_CAPABILITY AutoClosedFileLockGuard
+{
+private:
+    AutoClosedFileBase* fp;
+
+public:
+    explicit AutoClosedFileLockGuard(AutoClosedFileBase& filebase)
+        THREAD_ANNOTATION_ACQUIRE(filebase.get()->mutex(),
+                                  filebase.get_as<RegularFile>()->mutex(),
+                                  filebase.get_as<Symlink>()->mutex(),
+                                  filebase.get_as<Directory>()->mutex())
+        : fp(&filebase)
+    {
+        fp->get()->mutex().lock();
+    }
+    ~AutoClosedFileLockGuard() THREAD_ANNOTATION_RELEASE() { fp->get()->mutex().unlock(); }
+};
+
 inline AutoClosedFileBase open_as(FileTable& table, const id_type& id, int type)
 {
     return AutoClosedFileBase(&table, table.open_as(id, type));
