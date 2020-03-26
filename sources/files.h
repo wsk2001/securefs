@@ -35,8 +35,10 @@ private:
     static_assert(BTIME_OFFSET + sizeof(uint64_t) + sizeof(uint32_t) <= EXTENDED_HEADER_SIZE,
                   "Constants are wrong!");
 
-private:
+protected:
     Mutex m_lock;
+
+private:
     std::atomic<ptrdiff_t> m_refcount;
     std::shared_ptr<HeaderBase> m_header THREAD_ANNOTATION_GUARDED_BY(m_lock);
     const id_type m_id;
@@ -51,7 +53,7 @@ private:
     std::atomic_bool m_dirty, m_check, m_store_time;
 
 private:
-    void read_header();
+    void read_header() THREAD_ANNOTATION_REQUIRES(m_lock);
 
     [[noreturn]] void throw_invalid_cast(int to_type);
 
@@ -139,12 +141,13 @@ public:
     virtual ~FileBase();
     DISABLE_COPY_MOVE(FileBase)
 
-    void initialize_empty(uint32_t mode, uint32_t uid, uint32_t gid);
+    void initialize_empty(uint32_t mode, uint32_t uid, uint32_t gid)
+        THREAD_ANNOTATION_REQUIRES(m_lock);
 
     // --Begin of getters and setters for stats---
     uint32_t get_mode() const noexcept { return m_flags[0]; }
 
-    void set_mode(uint32_t value) noexcept
+    void set_mode(uint32_t value) noexcept THREAD_ANNOTATION_REQUIRES(m_lock)
     {
         if (get_mode() == value)
             return;
@@ -153,9 +156,9 @@ public:
         m_dirty = true;
     }
 
-    uint32_t get_uid() const noexcept { return m_flags[1]; }
+    uint32_t get_uid() const noexcept THREAD_ANNOTATION_REQUIRES(m_lock) { return m_flags[1]; }
 
-    void set_uid(uint32_t value) noexcept
+    void set_uid(uint32_t value) noexcept THREAD_ANNOTATION_REQUIRES(m_lock)
     {
         if (get_uid() == value)
             return;
@@ -166,7 +169,7 @@ public:
 
     uint32_t get_gid() const noexcept { return m_flags[2]; }
 
-    void set_gid(uint32_t value) noexcept
+    void set_gid(uint32_t value) noexcept THREAD_ANNOTATION_REQUIRES(m_lock)
     {
         if (get_gid() == value)
             return;
@@ -177,7 +180,7 @@ public:
 
     uint32_t get_nlink() const noexcept { return m_flags[3]; }
 
-    void set_nlink(uint32_t value) noexcept
+    void set_nlink(uint32_t value) noexcept THREAD_ANNOTATION_REQUIRES(m_lock)
     {
         if (get_nlink() == value)
             return;
@@ -186,33 +189,45 @@ public:
         m_dirty = true;
     }
 
-    void get_atime(fuse_timespec& out) const noexcept { out = m_atime; }
+    void get_atime(fuse_timespec& out) const noexcept THREAD_ANNOTATION_REQUIRES(m_lock)
+    {
+        out = m_atime;
+    }
 
-    void get_mtime(fuse_timespec& out) const noexcept { out = m_mtime; }
+    void get_mtime(fuse_timespec& out) const noexcept THREAD_ANNOTATION_REQUIRES(m_lock)
+    {
+        out = m_mtime;
+    }
 
-    void get_ctime(fuse_timespec& out) const noexcept { out = m_ctime; }
+    void get_ctime(fuse_timespec& out) const noexcept THREAD_ANNOTATION_REQUIRES(m_lock)
+    {
+        out = m_ctime;
+    }
 
-    void get_birthtime(fuse_timespec& out) const noexcept { out = m_birthtime; }
+    void get_birthtime(fuse_timespec& out) const noexcept THREAD_ANNOTATION_REQUIRES(m_lock)
+    {
+        out = m_birthtime;
+    }
 
-    void set_atime(const fuse_timespec& in) noexcept
+    void set_atime(const fuse_timespec& in) noexcept THREAD_ANNOTATION_REQUIRES(m_lock)
     {
         m_atime = in;
         m_dirty = true;
     }
 
-    void set_mtime(const fuse_timespec& in) noexcept
+    void set_mtime(const fuse_timespec& in) noexcept THREAD_ANNOTATION_REQUIRES(m_lock)
     {
         m_mtime = in;
         m_dirty = true;
     }
 
-    void set_ctime(const fuse_timespec& in) noexcept
+    void set_ctime(const fuse_timespec& in) noexcept THREAD_ANNOTATION_REQUIRES(m_lock)
     {
         m_ctime = in;
         m_dirty = true;
     }
 
-    void update_atime_helper()
+    void update_atime_helper() THREAD_ANNOTATION_REQUIRES(m_lock)
     {
         if (m_store_time && (m_atime.tv_sec < m_mtime.tv_sec || m_atime.tv_sec < m_ctime.tv_sec))
         {
@@ -221,7 +236,7 @@ public:
         }
     }
 
-    void update_mtime_helper()
+    void update_mtime_helper() THREAD_ANNOTATION_REQUIRES(m_lock)
     {
         if (m_store_time)
         {
@@ -231,7 +246,7 @@ public:
         }
     }
 
-    void update_ctime_helper()
+    void update_ctime_helper() THREAD_ANNOTATION_REQUIRES(m_lock)
     {
         if (m_store_time)
         {
@@ -258,32 +273,33 @@ public:
 
     bool is_unlinked() const noexcept { return get_nlink() <= 0; }
 
-    void unlink()
+    void unlink() THREAD_ANNOTATION_REQUIRES(m_lock)
     {
         auto nlink = get_nlink();
         --nlink;
         set_nlink(nlink);
     }
 
-    void flush();
+    void flush() THREAD_ANNOTATION_REQUIRES(m_lock);
 
-    void fsync()
+    void fsync() THREAD_ANNOTATION_REQUIRES(m_lock)
     {
         m_data_stream->fsync();
         m_meta_stream->fsync();
     }
 
-    void utimens(const struct fuse_timespec ts[2]);
+    void utimens(const struct fuse_timespec ts[2]) THREAD_ANNOTATION_REQUIRES(m_lock);
 
-    void stat(struct fuse_stat* st);
+    void stat(struct fuse_stat* st) THREAD_ANNOTATION_REQUIRES(m_lock);
 
-    ssize_t listxattr(char* buffer, size_t size);
+    ssize_t listxattr(char* buffer, size_t size) THREAD_ANNOTATION_REQUIRES(m_lock);
 
-    ssize_t getxattr(const char* name, char* value, size_t size);
+    ssize_t getxattr(const char* name, char* value, size_t size) THREAD_ANNOTATION_REQUIRES(m_lock);
 
-    void setxattr(const char* name, const char* value, size_t size, int flags);
+    void setxattr(const char* name, const char* value, size_t size, int flags)
+        THREAD_ANNOTATION_REQUIRES(m_lock);
 
-    void removexattr(const char* name);
+    void removexattr(const char* name) THREAD_ANNOTATION_REQUIRES(m_lock);
 
     template <class T>
     T* cast_as()
@@ -310,20 +326,25 @@ public:
     int type() const noexcept override { return class_type(); }
 
     length_type read(void* output, offset_type off, length_type len)
+        THREAD_ANNOTATION_REQUIRES(m_lock)
     {
         update_atime_helper();
         return this->m_stream->read(output, off, len);
     }
 
     void write(const void* input, offset_type off, length_type len)
+        THREAD_ANNOTATION_REQUIRES(m_lock)
     {
         update_mtime_helper();
         return this->m_stream->write(input, off, len);
     }
 
-    length_type size() const noexcept { return m_stream->size(); }
+    length_type size() const noexcept THREAD_ANNOTATION_REQUIRES(m_lock)
+    {
+        return m_stream->size();
+    }
 
-    void truncate(length_type new_size)
+    void truncate(length_type new_size) THREAD_ANNOTATION_REQUIRES(m_lock)
     {
         update_mtime_helper();
         return m_stream->resize(new_size);
@@ -342,7 +363,7 @@ public:
 
     int type() const noexcept override { return class_type(); }
 
-    std::string get()
+    std::string get() THREAD_ANNOTATION_REQUIRES(m_lock)
     {
         std::string result(m_stream->size(), 0);
         auto rc = m_stream->read(&result[0], 0, result.size());
@@ -351,7 +372,10 @@ public:
         return result;
     }
 
-    void set(const std::string& path) { m_stream->write(path.data(), 0, path.size()); }
+    void set(const std::string& path) THREAD_ANNOTATION_REQUIRES(m_lock)
+    {
+        m_stream->write(path.data(), 0, path.size());
+    }
 };
 
 class Directory : public FileBase
@@ -373,12 +397,14 @@ public:
     typedef std::function<bool(const std::string&, const id_type&, int)> callback;
 
     bool get_entry(const std::string& name, id_type& id, int& type)
+        THREAD_ANNOTATION_REQUIRES(m_lock)
     {
         update_atime_helper();
         return get_entry_impl(name, id, type);
     }
 
     bool add_entry(const std::string& name, const id_type& id, int type)
+        THREAD_ANNOTATION_REQUIRES(m_lock)
     {
         update_mtime_helper();
         return add_entry_impl(name, id, type);
@@ -389,6 +415,7 @@ public:
      * Returns false when the entry is not found.
      */
     bool remove_entry(const std::string& name, id_type& id, int& type)
+        THREAD_ANNOTATION_REQUIRES(m_lock)
     {
         update_mtime_helper();
         return remove_entry_impl(name, id, type);
@@ -397,13 +424,13 @@ public:
     /**
      * When callback returns false, the iteration will be terminated
      */
-    void iterate_over_entries(const callback& cb)
+    void iterate_over_entries(const callback& cb) THREAD_ANNOTATION_REQUIRES(m_lock)
     {
         update_atime_helper();
         return iterate_over_entries_impl(cb);
     }
 
-    virtual bool empty() = 0;
+    virtual bool empty() THREAD_ANNOTATION_REQUIRES(m_lock) = 0;
 
 protected:
     virtual bool get_entry_impl(const std::string& name, id_type& id, int& type) = 0;
