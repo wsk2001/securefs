@@ -1,5 +1,6 @@
 #pragma once
 
+#include "mutex.h"
 #include "myutils.h"
 #include "platform.h"
 #include "streams.h"
@@ -35,15 +36,19 @@ private:
                   "Constants are wrong!");
 
 private:
-    ptrdiff_t m_refcount;
-    std::shared_ptr<HeaderBase> m_header;
-    id_type m_id;
-    uint32_t m_flags[NUM_FLAGS];
-    fuse_timespec m_atime, m_mtime, m_ctime, m_birthtime;
-    std::shared_ptr<FileStream> m_data_stream, m_meta_stream;
-    CryptoPP::GCM<CryptoPP::AES>::Encryption m_xattr_enc;
-    CryptoPP::GCM<CryptoPP::AES>::Decryption m_xattr_dec;
-    bool m_dirty, m_check, m_store_time;
+    Mutex m_lock;
+    std::atomic<ptrdiff_t> m_refcount;
+    std::shared_ptr<HeaderBase> m_header THREAD_ANNOTATION_GUARDED_BY(m_lock);
+    const id_type m_id;
+    std::atomic<uint32_t> m_flags[NUM_FLAGS];
+    fuse_timespec m_atime THREAD_ANNOTATION_GUARDED_BY(m_lock),
+        m_mtime THREAD_ANNOTATION_GUARDED_BY(m_lock), m_ctime THREAD_ANNOTATION_GUARDED_BY(m_lock),
+        m_birthtime THREAD_ANNOTATION_GUARDED_BY(m_lock);
+    std::shared_ptr<FileStream> m_data_stream THREAD_ANNOTATION_GUARDED_BY(m_lock),
+        m_meta_stream THREAD_ANNOTATION_GUARDED_BY(m_lock);
+    CryptoPP::GCM<CryptoPP::AES>::Encryption m_xattr_enc THREAD_ANNOTATION_GUARDED_BY(m_lock);
+    CryptoPP::GCM<CryptoPP::AES>::Decryption m_xattr_dec THREAD_ANNOTATION_GUARDED_BY(m_lock);
+    std::atomic_bool m_dirty, m_check, m_store_time;
 
 private:
     void read_header();
