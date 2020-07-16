@@ -1,25 +1,24 @@
 # securefs
 
-`securefs` is a filesystem in userspace (FUSE) with transparent encryption (when writing) and decryption (when reading).
+`securefs`는 투명한 암호화 (쓰기시) 및 암호 해독 (읽기시) 이 있는 사용자 공간 (FUSE)의 파일 시스템입니다.
 
-`securefs` mounts a regular directory onto a mount point. The mount point appears as a regular filesystem, where one can read/write/create files, directories and symbolic links. The underlying directory will be automatically updated to contain the encrypted and authenticated contents.
+`securefs`는 일반 디렉토리를 마운트 지점에 마운트합니다. 마운트 지점은 파일, 디렉토리 및 심볼릭 링크를 읽거나 쓰거나 작성할 수있는 일반 파일 시스템으로 나타납니다. 기본 디렉토리는 암호화되고 인증 된 내용을 포함하도록 자동으로 업데이트됩니다.
 
-## Motivation
+## 동기
 
-From sensitive financial records to personal diaries and collection of guilty pleasures, we all have something to keep private from prying eyes. Especially when we store our files in the cloud, the company and the NSA may well get their hands upon it. The best protection we can afford ourselves is **cryptography**, the discipline developed by mathematicians and military originally to keep the national secrets.
+민감한 재무 기록부터 개인 일기, 유죄 쾌락 수집에 이르기까지 우리 모두는 개인의 눈을 사로 잡지 않도록해야 할 일이 있습니다. 특히 파일을 클라우드에 저장하면 회사와 NSA가 파일을 얻을 수 있습니다. 우리가 감당할 수있는 최선의 보호는 수학자와 군대가 원래 국가의 비밀을 지키기 위해 개발 한 학문 인 암호화입니다.
 
-Security, however, is often at odds with convenience, and people easily grow tired of the hassle and revert to no protection at all. Consider the case of protecting our files either locally or in the cloud: we have to encrypt the files before committing to the cloud and decrypt it every time we need to read and write. Worse still, such actions leave unencrypted traces on our hard drive. If we store data in the cloud, another issue arise: manual encryption and decryption prevent files from being synced efficiently.
+그러나 보안은 종종 편의와 상충되며 사람들은 쉽게 번거 로움을 느끼고 전혀 보호하지 않는 상태로 돌아갑니다. 로컬 또는 클라우드에서 파일을 보호하는 경우를 고려하십시오. 클라우드에 커밋하기 전에 파일을 암호화하고 읽고 쓸 때마다 해독해야합니다. 더 나쁜 것은, 그러한 행동은 하드 드라이브에 암호화되지 않은 흔적을 남깁니다. 클라우드에 데이터를 저장하면 수동 암호화 및 암호 해독으로 인해 파일이 효율적으로 동기화되지 않습니다.
 
-`securefs` is intended to make the experience as smooth as possible so that the security and convenience do not conflict. After mounting the virtual filesystem, everything just works&#8482;.
+`securefs`는 보안과 편의성이 충돌하지 않도록 가능한 한 원활하게 경험할 수 있도록 고안되었습니다. 가상 파일 시스템을 마운트 한 후 모든 것이 작동합니다.
 
-## Comparison
+## 비교
 
-There are already many encrypting filesystem in widespread use. Some notable ones are TrueCrypt, FileVault, BitLocker, eCryptFS, encfs and gocryptfs. `securefs` differs from them in that it is the only one with all of the following features:
-
-* [Authenticated encryption](https://en.wikipedia.org/wiki/Authenticated_encryption) (hence secure against chosen ciphertext attacks)
-* [Probabilistic encryption](https://en.wikipedia.org/wiki/Probabilistic_encryption) (hence provides semantical security)
-* Supported on all major platforms (Mac, Linux, BSDs and Windows)
-* Efficient cloud synchronization (not a single preallocated file as container)
+널리 사용되는 암호화 파일 시스템이 이미 많이 있습니다. 주목할만한 것은 TrueCrypt, FileVault, BitLocker, eCryptFS, encfs 및 gocryptfs입니다. Securefs는 다음 기능을 모두 갖춘 유일한 점이 다릅니다.
+* [Authenticated encryption](https://en.wikipedia.org/wiki/Authenticated_encryption) (따라서 선택된 암호문 공격으로부터 보호)
+* [Probabilistic encryption](https://en.wikipedia.org/wiki/Probabilistic_encryption) (따라서 의미 론적 보안을 제공합니다)
+* 모든 주요 플랫폼에서 지원 (Mac, Linux, BSDs and Windows)
+* 효율적인 클라우드 동기화 (컨테이너로 사전 할당 된 단일 파일이 아님)
 
 ## Install
 
@@ -28,29 +27,29 @@ There are already many encrypting filesystem in widespread use. Some notable one
 
 ### macOS
 
-Install with [Homebrew](https://brew.sh). [osxfuse](https://osxfuse.github.io) has to be installed beforehand.
+Homebrew와 함께 설치하십시오. Osxfuse를 미리 설치해야합니다.
 ```
 brew install securefs
 ```
 
 ### Windows
 
-Windows users can download prebuilt package from the releases section. It depends on [WinFsp](https://github.com/billziss-gh/winfsp/releases) and [VC++ 2017 redistribution package](https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads).
+Windows 사용자는 릴리스 섹션에서 사전 빌드 된 패키지를 다운로드 할 수 있습니다. [WinFsp](https://github.com/billziss-gh/winfsp/releases) 및 [VC ++ 2017 재배포 패키지](https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads)에 에 의존 합니다.
 
 ### Linux
 
-Linux users have to build it from source.
+Linux 사용자는 소스에서 빌드해야합니다.
 
-First `fuse` must be installed.
+첫 번째 `fuse`를 설치해야합니다.
 
-* On Debian based Linux distro, `sudo apt-get install fuse libfuse-dev build-essential cmake`.
-* On RPM based Linux, `sudo yum install fuse fuse-devel`.
+* 데비안 기반 Linux 배포판에서 `sudo apt-get install fuse libfuse-dev build-essential cmake`.
+* RPM 기반 Linux에서, `sudo yum install fuse fuse-devel`.
 
-Then clone the sources by `git clone --recursive`, and execute `linux-build.sh`.
+그런 다음`git clone --recursive`로 소스를 복제하고`linux-build.sh`를 실행하십시오.
 
 ### FreeBSD (unofficial)
 
-Install using packages (recommended):
+패키지를 사용하여 설치 (권하다):
 ```bash
 pkg install fusefs-securefs
 ```
@@ -66,9 +65,9 @@ kldload fuse
 sysrc -f /boot/loader.conf fuse_load="YES"  # Load fuse automatically at boot
 ```
 
-## Basic usage
+## 기본 사용법
 
-*It is recommended to disable or encrypt the swap and hibernation file. Otherwise plaintext and keys stored in the main memory may be written to disk by the OS at any time.*
+*스왑 및 최대 절전 모드 파일을 비활성화하거나 암호화하는 것이 좋습니다. 그렇지 않으면 주 메모리에 저장된 일반 텍스트와 키는 언제든지 OS에 의해 디스크에 기록 될 수 있습니다.*
 
 Examples:
 
@@ -80,24 +79,24 @@ securefs mount ~/Secret ~/Mount # press Ctrl-C to unmount
 securefs m -h # m is an alias for mount, -h tell you all the flags
 ```
 
-## Lite and full mode
+## 라이트 및 풀 모드
 
-There are two categories of filesystem format.
+파일 시스템 형식에는 두 가지 범주가 있습니다.
 
-The **lite** format simply encrypts filenames and file contents separately, similar to how `encfs` operates, although with more security.
+** lite ** 형식은 보안 성이 더 높지만`encfs` 작동 방식과 유사하게 파일 이름과 파일 내용을 개별적으로 암호화합니다.
 
-The **full** format maps files, directory and symlinks in the virtual filesystem all to regular files in the underlying filesystem. The directory structure is flattened and recorded as B-trees in files.
+** full ** 형식은 가상 파일 시스템의 파일, 디렉토리 및 심볼릭 링크를 기본 파일 시스템의 일반 파일에 모두 매핑합니다. 디렉토리 구조가 평평 해지고 파일에 B-Tree로 기록됩니다.
 
-The lite format has become the default on Unix-like operating systems as it is much faster and features easier conflict resolution, especially when used with DropBox, Google Drive, etc. The full format, however, leaks fewer information about the filesystem hierarchy, runs relatively independent of the features of the underlying filesystem, and is in general more secure.
+라이트 형식은 특히 DropBox, Google Drive 등과 함께 사용하는 경우 Unix와 유사한 운영 체제에서 기본값이되어 훨씬 빨라지고 충돌 해결이 더 쉬워집니다. 그러나 전체 형식은 파일 시스템 계층 구조에 대한 정보가 더 적습니다. 기본 파일 시스템의 기능과 비교적 독립적이며 일반적으로 더 안전합니다.
 
-To request full format, which is no longer the default, run `securefs create --format 2`.
+더 이상 기본값이 아닌 전체 형식을 요청하려면`securefs create --format 2`를 실행하십시오.
 
-## Design and algorithms
+## 설계 및 알고리즘
 
-See [here](docs/design.md).
+[여기](docs/design.md)를 보십시요.
 
-## Caveat
+## 경고
 
-If you store `securefs` encrypted files on iCloud Drive, it might cause Spotlight Search on iOS to stop working. It is a bug in iOS, not in `securefs`.
+ICloud Drive에 'securefs'암호화 파일을 저장하면 iOS에서 Spotlight 검색이 작동하지 않을 수 있습니다. `securefs`가 아닌 iOS의 버그입니다.
 
-To work around that bug, you can disable the indexing of *Files* app in Settings -> Siri & Suggestions.
+이 버그를 해결하려면 Setting -> Siri 및 제안에서 *파일* 앱의 색인 생성을 비활성화 할 수 있습니다.
