@@ -34,7 +34,7 @@ brew install securefs
 
 ### Windows
 
-Windows 사용자는 릴리스 섹션에서 사전 빌드 된 패키지를 다운로드 할 수 있습니다. [WinFsp](https://github.com/billziss-gh/winfsp/releases) 및 [VC ++ 2017 재배포 패키지](https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads)에 에 의존 합니다.
+Windows 사용자는 [릴리스](https://github.com/netheril96/securefs/releases) 섹션에서 사전 빌드 된 패키지를 다운로드 할 수 있습니다. [WinFsp](https://github.com/billziss-gh/winfsp/releases) 및 [VC ++ 2017 재배포 패키지](https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads)에 에 의존 합니다.
 
 ### Linux
 
