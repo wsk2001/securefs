@@ -128,11 +128,23 @@ sysrc -f /boot/loader.conf fuse_load="YES"  # Load fuse automatically at boot
 Examples:
 
 ```bash
+# Linux
 securefs --help
 securefs create ~/Secret
 securefs chpass ~/Secret
 securefs mount ~/Secret ~/Mount # press Ctrl-C to unmount
 securefs m -h # m is an alias for mount, -h tell you all the flags
+
+# Windows
+-- dir 생성, 기존에 Network Driver 를 사용 해도 됨.
+mkdir -p C:\MountPoint\EncDir
+
+-- 암호화 설정 정보 생성
+securefs create C:\MountPoint\EncDir
+
+-- 파일시스템 마운트
+securefs mount C:\MountPoint\EncDir m:
+
 ```
 
 ## 라이트 및 풀 모드
