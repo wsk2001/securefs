@@ -36,6 +36,56 @@ brew install securefs
 
 Windows 사용자는 [릴리스](https://github.com/netheril96/securefs/releases) 섹션에서 사전 빌드 된 패키지를 다운로드 할 수 있습니다. [WinFsp](https://github.com/billziss-gh/winfsp/releases) 및 [VC ++ 2017 재배포 패키지](https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads)에 에 의존 합니다.
 
+#### <span style="color:Magenta">Windows 에서 소스를 이용한 Build</span>
+securefs 를 Windows 에서 Build 하는 절차는 문서 어디에서도 찾을 수 없었습니다.  시행착오는 좀 하였지만 나는 Microsoft Visual Studio Community 2019 에서 컴파일을 성공 하였으며 컴파일 하기 위한  절차는 다음과 같습니다.
+
+- GitHub 에서 Project Source 를 내려 받기
+
+  https://github.com/netheril96/securefs
+
+- WinFsp 설치
+
+  https://github.com/billziss-gh/winfsp/releases
+
+- Cmake 설치
+
+  https://cmake.org/download/
+
+- Visual studio spectre 설정 끄기
+
+  - 프로젝트 directory 에 `Directory.Build.props` 파일 생성
+
+    ``` props
+    <Project>
+      <PropertyGroup Label="Configuration">
+        <SpectreMitigation>false</SpectreMitigation>
+      </PropertyGroup>
+    </Project>
+    ```
+
+- Solution 만들기
+
+  - cmake CMakeLists.txt
+
+- 전체 컴파일
+
+  - 생성된 securefs.sln 파일을   Visual Studio 2019 로 Open
+  - 솔루션 전체 빌드
+
+컴파일이 완료 되면 securefs\Release 에 다음과 같은 파일들이 생성 됩니다.
+
+``` cmd
+2020-07-18  오후 01:25         6,225,474 securefs-static.lib
+2020-07-18  오후 01:25           934,912 securefs.exe
+2020-07-18  오후 01:25             4,353 securefs.exp
+2020-07-18  오후 01:25             7,674 securefs.lib
+2020-07-18  오후 01:25         1,095,168 securefs_test.exe
+2020-07-18  오후 01:25             4,362 securefs_test.exp
+2020-07-18  오후 01:25             7,954 securefs_test.lib
+```
+
+
+
 ### Linux
 
 Linux 사용자는 소스에서 빌드해야합니다.
