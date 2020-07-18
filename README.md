@@ -84,6 +84,12 @@ securefs 를 Windows 에서 Build 하는 절차는 문서 어디에서도 찾을
 2020-07-18  오후 01:25             7,954 securefs_test.lib
 ```
 
+- 실행 방법
+
+  - mkdir enc_folder
+  - securefs create enc_folder
+  - securefs mount enc_folder M:
+
 
 
 ### Linux
