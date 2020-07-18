@@ -2,7 +2,7 @@
 
 `securefs`는 투명한 암호화 (쓰기시) 및 복호화 (읽기시) 가 가능한 사용자 공간 (FUSE)의 파일 시스템입니다.
 
-`securefs`는 일반 디렉토리를 마운트 지점에 마운트합니다. 마운트 지점은 파일, 디렉토리 및 심볼릭 링크를 읽거나 쓰거나 작성할 수있는 일반 파일 시스템으로 나타납니다. 기본 디렉토리는 암호화되고 인증 된 내용을 포함하도록 자동으로 업데이트됩니다.
+`securefs`는 일반 디렉토리를 마운트 지점에 마운트합니다. 마운트 지점은 파일, 디렉토리 및 심볼릭 링크를 읽거나 쓰거나 작성할 수있는 일반 파일 시스템으로 나타납니다. base 디렉토리(NAS 또는 Samba 또는 Local dir)는 암호화되고 인증 된 내용을 포함하도록 자동으로 업데이트됩니다.
 
 ## 동기
 
@@ -15,10 +15,10 @@
 ## 비교
 
 널리 사용되는 암호화 파일 시스템이 이미 많이 있습니다. 주목할만한 것은 TrueCrypt, FileVault, BitLocker, eCryptFS, encfs 및 gocryptfs입니다. Securefs는 다음 기능을 모두 갖춘 유일한 점이 다릅니다.
-* [Authenticated encryption](https://en.wikipedia.org/wiki/Authenticated_encryption) (따라서 선택된 암호문 공격으로부터 보호)
-* [Probabilistic encryption](https://en.wikipedia.org/wiki/Probabilistic_encryption) (따라서 의미 론적 보안을 제공합니다)
+* [Authenticated encryption](https://en.wikipedia.org/wiki/Authenticated_encryption) (선택된 암호문 공격으로부터 보호)
+* [Probabilistic encryption](https://en.wikipedia.org/wiki/Probabilistic_encryption) (의미론 적 보안을 제공합니다)
 * 모든 주요 플랫폼에서 지원 (Mac, Linux, BSDs and Windows)
-* 효율적인 클라우드 동기화 (컨테이너로 사전 할당 된 단일 파일이 아님)
+* 효율적인 클라우드 동기화 (컨테이너로 사전 할당 된 단일 파일(image 파일)이 아님)
 
 ## Install
 
